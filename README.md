@@ -9,7 +9,7 @@ anything, really.
 $ php interpreter.php
 ```
 
-Requires PHP and Python
+Requires PHP and Python (+ Python packages you want ChatGPT to use)
 
 ## Running in Docker (Optional)
 
@@ -24,7 +24,7 @@ docker build -t chatgpt-codeinterpreter .
 To run the image, run the following command in the root directory of the project:
 
 ```shell
-docker run -it --rm -e OPENAI_API_KEY=sk-{REPLACE_ME} -e MODEL=gpt-3.5-turbo -v ./data:/app/data chatgpt-codeinterpreter
+docker run -it --rm -e OPENAI_API_KEY=$OPENAI_API_KEY -e MODEL=gpt-3.5-turbo -v ./data:/app/data chatgpt-codeinterpreter
 ```
 
-You can also use MODEL=gpt-4
+You can also use `MODEL=gpt-4`

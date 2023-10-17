@@ -13,12 +13,16 @@ class PythonResult {
 }
 
 /**
- * Determines the Python command to run
- * based on the operating system
+ * Determines the Python command to run based on the
+ * operating system or the command line argument
  *
  * @return string The python command
  */
 function get_python_command(): string {
+    if( defined( "PYTHON_COMMAND" ) ) {
+        return PYTHON_COMMAND;
+    }
+
     if( stripos( PHP_OS, "win" ) === 0 ) {
         return "python";
     }
@@ -89,11 +93,24 @@ function python( string $code ): string {
     ] );
 }
 
+$program_name = array_shift( $argv );
+
+$args = [];
+
+while( $flag = array_shift( $argv ) ) {
+    if( $flag === "--model" ) {
+        $args["model"] = array_shift( $argv );
+    } elseif( $flag === "--python-command" ) {
+        define( "PYTHON_COMMAND", array_shift( $argv ) );
+    }
+}
+
 if( ! file_exists( __DIR__ . "/data/" ) ) {
     mkdir( __DIR__ . "/data/" );
 }
 
 $chatgpt = new ChatGPT( getenv( "OPENAI_API_KEY" ) );
+$chatgpt->set_model( $args["model"] ?? "gpt-3.5-turbo" );
 $chatgpt->smessage( "You are an AI assistant that can run Python code in order to answer the user's question. You can access a folder called 'data/' from the Python code to read or write files. Write visualizations and charts into a file if possible. When creating links to files in the data directory in your response, use the format [link text](data/filename)" );
 $chatgpt->add_function( "python" );
 

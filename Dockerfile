@@ -40,6 +40,9 @@ ENV PYTHONPATH /usr/local/lib/python3.9/site-packages/
 COPY . /app/
 WORKDIR /app
 ENV PYTHON_COMMAND=python
+ENV MODEL=gpt-3.5-turbo
 VOLUME /app/data
-ENTRYPOINT ["php", "/app/interpreter.php"]
+ENTRYPOINT [ "/bin/sh", "-c", "php /app/interpreter.php \
+                               --model $MODEL \
+                               --python-command $PYTHON_COMMAND"]
 
