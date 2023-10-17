@@ -12,6 +12,20 @@ class PythonResult {
     ) {}
 }
 
+/**
+ * Determines the Python command to run
+ * based on the operating system
+ *
+ * @return string The python command
+ */
+function get_python_command(): string {
+    if( stripos( PHP_OS, "win" ) === 0 ) {
+        return "python";
+    }
+
+    return "python3";
+}
+
 function run_python_code( string $code ): PythonResult {
     $temp_file = "/tmp/code.py";
 
@@ -21,7 +35,7 @@ function run_python_code( string $code ): PythonResult {
 
     $output = [];
     $result_code = NULL;
-    exec( "python3 ".escapeshellarg( $temp_file )." 2>&1", $output, $result_code );
+    exec( get_python_command() . " ".escapeshellarg( $temp_file )." 2>&1", $output, $result_code );
 
     if( file_exists( $temp_file ) ) unlink( $temp_file );
 
