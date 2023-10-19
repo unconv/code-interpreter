@@ -57,27 +57,102 @@ function input( string $message = "" ): string {
     return trim( $line );
 }
 
+function get_filename( string $filename ): string {
+    if( strpos( $filename, "data/" ) !== 0 ) {
+        return "data/" . $filename;
+    }
+
+    return $filename;
+}
+
+/**
+ * Read the contents of a file
+ *
+ * @param string $filename The name of the file to read
+ * @param int $line_count How many lines to read (-1 = all lines)
+ */
+function read_file_contents( string $filename, ?int $line_count = null ) {
+    $filename = get_filename( $filename );
+
+    if( $line_count === -1 ) {
+        $line_count = null;
+    }
+
+    $how_many = $line_count === null ? "ALL": $line_count;
+
+    print( "\nREADING " . $how_many . " LINES FROM FILE: " . $filename . "\n" );
+
+    if( ! file_exists( $filename ) ) {
+        return "<file not found>";
+    }
+
+    if( ! is_readable( $filename ) ) {
+        return "<file is not readable>";
+    }
+
+    // TODO: read lines more efficiently
+    $lines = file( $filename );
+
+    if( $lines === false ) {
+        return "<unable to read file>";
+    }
+
+    $lines = array_slice( $lines, 0, $line_count );
+
+    $contents = implode( "\n", $lines );
+
+    if( trim( $contents ) == "" ) {
+        return "<file is empty>";
+    }
+
+    return $contents;
+}
+
 /**
  * Run python code
  *
  * @param string $code The code to run. Code must have a print statement in the end that prints out the relevant return value
  */
 function python( string $code ): string {
+    $code = trim( $code );
+
+    // fix ChatGPT hallucinations
+    if( str_contains( $code, '"code": "' ) ) {
+        echo "\nNOTICE: Fixing ChatGPT hallucinated arguments\n";
+
+        $code = explode( '"code": "', $code, 2 );
+        $code = trim( $code[1] );
+        $code = trim( rtrim( $code, '}' ) );
+        $code = trim( rtrim( $code, '"' ) );
+
+        // convert "\n" to newline
+        $code = str_replace( '\n', "\n", $code );
+    }
+
     $styled_code = "";
     $code_rows = explode( "\n", $code );
+    $row_count = count( $code_rows );
 
-    foreach( $code_rows as $row ) {
-        $styled_code .= "# " . str_pad( $row, 45 ) . " #\n";
+    foreach( $code_rows as $i => $row ) {
+        // TODO: run python code in such a way that this is
+        //       not necessary
+        if( $i === $row_count-1 ) {
+            if( ! str_contains( $row, "print(" ) ) {
+                $row = "print(" . $row . ")";
+            }
+        }
+
+        $styled_code .= "# " . str_pad( $row, CODE_BOX_LEN - 4 ) . " #\n";
     }
 
     echo "\n";
-    echo "#################################################\n";
-    echo "# I WANT TO RUN THIS PYTHON CODE:               #\n";
+    echo "#" . str_repeat( "#", CODE_BOX_LEN - 2 ) . "#\n";
+    echo "# ". str_pad( "I WANT TO RUN THIS PYTHON CODE:", CODE_BOX_LEN - 3 ) . "#\n";
     echo $styled_code;
-    echo "#################################################\n";
+    echo "#" . str_repeat( "#", CODE_BOX_LEN - 2 ) . "#\n";
 
     do {
-        $answer = input( "\nDo you want to run this code? (yes/no)" );
+        $answer = input( "\nGPT: Do you want to run this code? (yes/no)\nYou: " );
     } while ( ! in_array( $answer, ["yes", "no"] ) );
 
     if( $answer != "yes" ) {
@@ -93,6 +168,14 @@ function python( string $code ): string {
     ] );
 }
 
+// alias for ChatGPT hallucinations
+function pythoncode( string $code ): string {
+    echo "\nNOTICE: ChatGPT ran hallucinated 'pythoncode' function\n";
+    return python( $code );
+}
+
+define( "CODE_BOX_LEN", 65 );
+
 $program_name = array_shift( $argv );
 
 $args = [];
@@ -100,9 +183,16 @@ $args = [];
 while( $flag = array_shift( $argv ) ) {
     if( $flag === "--model" ) {
         $args["model"] = array_shift( $argv );
+        echo "INFO: Using model '" . $args["model"] . "'\n";
     } elseif( $flag === "--python-command" ) {
+        $args["python-command"] = array_shift( $argv );
         define( "PYTHON_COMMAND", array_shift( $argv ) );
+        echo "INFO: Using python command '" . PYTHON_COMMAND . "'\n";
     }
+}
+
+if( count( $args ) ) {
+    echo "\n";
 }
 
 if( ! file_exists( __DIR__ . "/data/" ) ) {
@@ -111,7 +201,8 @@ if( ! file_exists( __DIR__ . "/data/" ) ) {
 
 $chatgpt = new ChatGPT( getenv( "OPENAI_API_KEY" ) );
 $chatgpt->set_model( $args["model"] ?? "gpt-3.5-turbo" );
-$chatgpt->smessage( "You are an AI assistant that can run Python code in order to answer the user's question. You can access a folder called 'data/' from the Python code to read or write files. Write visualizations and charts into a file if possible. When creating links to files in the data directory in your response, use the format [link text](data/filename)" );
+$chatgpt->smessage( "You are an AI assistant that can read files and run Python code in order to answer the user's question. You can access a folder called 'data/' from the Python code to read or write files. Always save visualizations and charts into a file. When creating links to files in the data directory in your response, use the format [link text](data/filename). When the task requires to process or read user provided data from files, always read the file content first, before running Python code. Don't assume the contents of files. When processing CSV files, read the file first before writing any Python code. Note that Python code will always be run in an isolated environment, without access to variables from previous code." );
+$chatgpt->add_function( "read_file_contents" );
 $chatgpt->add_function( "python" );
 
 echo "################################################\n";

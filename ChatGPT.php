@@ -172,6 +172,12 @@ class ChatGPT {
 
         // add response to messages
         $message = $response->choices[0]->message;
+
+        if( isset( $message->function_call ) ) {
+            // fix function name hallucinations
+            $message->function_call->name = preg_replace( '/[^a-zA-Z0-9_-]/', '', $message->function_call->name );
+        }
+
         $this->messages[] = $message;
 
         if( is_callable( $this->savefunction ) ) {
